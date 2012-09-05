@@ -1,0 +1,24 @@
+#!/bin/sh
+
+host=$1
+
+# We need an argument
+if [ -z "$host" ] ; then
+    echo "Please provide a host"
+    exit 1
+fi
+
+(
+
+# Collect the source
+for application in `cat ./applications` ; do
+    application=`echo "$application" | tr '_' ' '`
+    if [ -d "/Applications/$application" ] ; then
+        echo "\'$host:/Applications/$application\'"
+    fi
+done 
+
+# Destination
+echo "/Applications/"
+
+) | xargs echo 

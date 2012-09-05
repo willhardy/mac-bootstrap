@@ -1,0 +1,7 @@
+#!/bin/sh
+
+./install-homebrew
+./install-osx-config
+./install-dotfiles
+./install-src
+./install-apps will@wh.local

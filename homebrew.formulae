@@ -18,6 +18,7 @@ imagemagick
 jpeg
 lame
 libevent
+libev
 
 node
 ringojs

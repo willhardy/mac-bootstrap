@@ -1,0 +1,12 @@
+#!/bin/sh
+
+NAME=$1
+REQUIREMENTS_FILE=$2
+if [ "$#" -ne 2 ] ; then
+    exit 1
+fi
+
+. ~/.profile
+
+mkvirtualenv --no-site-packages -p /usr/local/bin/python "$NAME"
+pip install -r "$REQUIREMENTS_FILE"

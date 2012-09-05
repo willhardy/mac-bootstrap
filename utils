@@ -1,0 +1,40 @@
+#!/bin/sh
+
+APP_DIR=/Applications
+
+# This function takes a .dmg filename, attaches it, installs the .mpkg file 
+# within and detaches it
+function install_from_dmg() {
+    dmg_file=$1
+    volume=`hdiutil attach -nobrowse -noautoopen "$dmg_file" 2> /dev/null | tail -1 | cut -f 3`
+    install_package=`ls "$volume"/*.mpkg | head -1`
+    sudo installer -pkg "$install_package" -target / > /dev/null 2>&1
+    hdiutil detach "$volume" > /dev/null 2>&1
+}
+
+# This functions copies from the given disk image, if it doesn't already exist
+function copy_from_dmg() { 
+    dmg_file=$1
+    volume=`hdiutil attach -nobrowse -noautoopen "$dmg_file" 2> /dev/null | tail -1 | cut -f 3`
+    app=`ls "$volume"/*.app | head -1`
+    if [ ! -d "$APP_DIR/$app" ] ; then
+        cp -R "$app" "$APP_DIR/$app"
+        echo "Installed $app"
+    else
+        echo "$app already installed"
+    fi
+    hdiutil detach "$volume" > /dev/null 2>&1
+}
+
+
+DOWNLOADS=~/downloads/apps
+
+function download_app() {
+    url=$1
+    name=$2
+    mkdir -p $DOWNLOADS
+    if [ ! -f "$DOWNLOADS/$name" ] ; then
+        http get "$url" > "$DOWNLOADS/$name"
+    fi
+    print "$DOWNLOADS/$name"
+}

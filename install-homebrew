@@ -8,15 +8,7 @@ sudo -v
 # Keep-alive: update existing `sudo` time stamp until `osx` has finished
 while true; do sudo -n true; sleep 60; kill -0 "$$" || exit; done 2>/dev/null &
 
-# This function takes a .dmg filename, attaches it, installs the .mpkg file 
-# within and detaches it
-function install_from_dmg() {
-    dmg_file=$1
-    volume=`hdiutil attach -nobrowse -noautoopen "$dmg_file" 2> /dev/null | tail -1 | cut -f 3`
-    install_package=`ls "$volume"/*.mpkg | head -1`
-    sudo installer -pkg "$install_package" -target / > /dev/null 2>&1
-    hdiutil detach "$volume" > /dev/null 2>&1
-}
+. ./utils
 
 ################################################################################
 # Install homebrew's requirements
@@ -46,13 +38,12 @@ if ! which gcc > /dev/null ; then
     install_from_dmg "$XCODE_TOOLS_DMG"
 fi
 
-# Install Java developer tools
-if ! which javatool > /dev/null ; then
+# Install Java developer tools 
+# TODO: Find a better test, also, Lion doesn't do the auto install thing
+if ! javac -version 2> /dev/null ; then
     echo "Installing Java"
-    # Running this will prompt to install
-    javac -version
     # Check every five seconds if the install has been completed
-    while ! which javatool > /dev/null ; do
+    while ! javac -version 2> /dev/null ; do
         sleep 5
     done
     # Give a little more time to complete, the above test isn't very comprehensive
@@ -72,6 +63,10 @@ brew update
 
 # Upgrade any already-installed formulae
 brew upgrade
+
+# Install python first
+brew install python
+./install-python
 
 packages=`cat homebrew.formulae | sed 's/\s*#.*$//' | sed '/^\s*$/d'`
 for package in $packages ; do

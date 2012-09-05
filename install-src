@@ -1,0 +1,140 @@
+#!/usr/bin/env python
+
+import os
+import requests
+import getpass
+import sys
+import logging
+from collections import defaultdict
+
+# If gevent 1.0+ is available use that to speed up downloads
+# (ie make them run simultaneously) This could also be done
+# in threads, but gevent is more convenient for now.
+try:
+    import gevent
+    from gevent import subprocess
+    from gevent import monkey
+    monkey.patch_socket()
+except ImportError:
+    import subprocess
+    gevent = None
+    logging.debug("No gevent 1.0+ available. Using normal subprocess (this is slower)\n")
+
+logger = logging.getLogger()
+logger.setLevel(logging.DEBUG)
+
+SRC_DIR = '~/src'
+
+GITHUB_REPOS = 'https://api.github.com/user/repos'
+GITHUB_USER = 'willhardy'
+
+
+def unpack_github():
+    prompt = "Github password for {0}: ".format(GITHUB_USER)
+    if sys.stdin.isatty():
+        password = getpass.getpass(prompt=prompt)
+    else:
+        print prompt
+        password = sys.stdin.readline().rstrip()
+    repo_exceptions, user_exceptions, repo_includes = parse_repos("repositories")
+
+    auth = (GITHUB_USER, password)
+    json = requests.get(GITHUB_REPOS, auth=auth).json
+
+    # Get a list of all non-forked repositories
+    repo_urls = []
+    for repo in json:
+        if not repo['fork']:
+            full_name = repo['full_name']
+            user, name = full_name.split("/", 1)
+            if full_name in repo_exceptions or user in user_exceptions:
+                if full_name not in repo_includes:
+                    continue
+            repo_urls.append(user, name, repo['private'], repo['ssh_url'])
+
+    if gevent:
+        jobs = [gevent.spawn(unpack_source, *args) for args in repo_urls]
+        gevent.joinall(jobs)
+    else:
+        for name, addr in repositories:
+            unpack_source(addr, name)
+
+
+def unpack_source(name, private, repository):
+    """ Download and unpack the given repository in the given directory.
+    """
+    if private:
+        src_directory = os.path.join(SRC_DIR, "clients", name)
+    else:
+        src_directory = os.path.join(SRC_DIR, "public", name)
+
+    if os.path.exists(src_directory):
+        logger.debug("Using existing repository: {0}".format(name))
+    else:
+        logger.debug("Unpacking {0}".format(name))
+        make_required_dirs(os.path.dirname(src_directory))
+        call("git", "clone", repository, src_directory)
+        requirements_file = os.path.join(src_directory, "requirements.txt")
+        if os.path.exists(requirements_file):
+            create_virtualenv(name, requirements_file)
+
+    return src_directory
+
+
+def create_virtualenv(name, requirements_file):
+    logger.debug(call("./install-virtualenv", name, requirements_file, return_stdout=True))
+
+
+def call(*args, **kwargs):
+    return_stdout = kwargs.pop("return_stdout", False)
+    env = kwargs.pop("env", None)
+    stderr = None if return_stdout else subprocess.STDOUT
+
+    # Run the command and collect standard output
+    p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=stderr, env=env)
+    stdout, stderr = p.communicate()
+    if return_stdout:
+        return stdout
+    else:
+        logger.debug(stdout)
+
+
+def make_required_dirs(*dirs):
+    for directory in dirs:
+        if not os.path.exists(directory):
+            os.makedirs(directory)
+            logger.debug("Created directory {{0}}".format(directory))
+
+
+def parse_repositories(filename):
+    """
+    Parse a list of repositories. Those ending in / are excluded users, those ending in ! are to be included.
+    """
+    repo_exceptions = set()
+    user_exceptions = set()
+    repo_includes = set()
+    with open(filename) as f:
+        for line in f:
+            line = line.strip()
+            if line.endswith("/"):
+                user_exceptions.add(line.rstrip("/"))
+            elif line.endswith("!"):
+                repo_includes.add(line.rstrip("!"))
+            else:
+                repo_exceptions.add(line)
+    return repo_exceptions, user_exceptions, repo_includes
+
+
+def setup_console_log(level):
+    hdlr = logging.StreamHandler()
+    hdlr.setFormatter(logging.Formatter('%(message)s'))
+    hdlr.setLevel(level)
+    # Remove any existing handlers
+    logger.handlers = [] 
+    logger.addHandler(hdlr) 
+
+
+if __name__ == '__main__':
+    setup_console_log(logging.INFO)
+    unpack_github()
+    #unpack_private()

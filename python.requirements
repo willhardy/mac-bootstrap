@@ -1,2 +1,6 @@
 httpie
 virtualenv
+virtualenvwrapper
+requests
+numpy
+https://gevent.googlecode.com/files/gevent-1.0b3.tar.gz
