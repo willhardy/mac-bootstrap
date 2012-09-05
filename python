@@ -1,0 +1,36 @@
+#!/bin/sh
+
+EASY_INSTALL_BIN="/usr/local/share/python/easy_install"
+PIP_BIN="/usr/local/share/python/pip"
+PYTHON_BIN="/usr/local/bin/python"
+
+# 1. Install pip
+if [ ! -f "$EASY_INSTALL_BIN" ] ; then
+    echo "Please install Python through homebrew:"
+    echo "    brew install python"
+    echo "    brew link python"
+    exit 1
+fi
+"$EASY_INSTALL_BIN" pip
+
+
+# 2. Install each package in python.requirements
+if [ ! -f "$PIP_BIN" ] ; then
+    echo "pip install failed :("
+    echo "    $EASY_INSTALL_BIN pip"
+    exit 2
+fi
+"$PIP_BIN" install -r python.requirements
+
+
+# Check that Python executables are appropriately linked
+# use /etc/paths to do this
+
+if [ "`which python`" != "$PYTHON_BIN" -o "`which easy_install`" != "$EASY_INSTALL_BIN" ] ; then
+    echo "Please ensure Homebrew's python/easy_install are the default (see /etc/paths)."
+    exit 3
+fi
+if [ "`which pip`" != "$PIP_BIN" ] ; then
+    echo "Please ensure the default pip is from homebrew (see /etc/paths)."
+    exit 4
+fi
